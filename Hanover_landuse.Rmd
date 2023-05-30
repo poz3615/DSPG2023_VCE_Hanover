@@ -1,0 +1,145 @@
+---
+title: "Hanover_LandUse"
+output: html_document
+date: '2023-05-23'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Comment and uncommment as needed (will need to just download it once and then comment for the rest)
+#install.packages("sf") 
+#install.packages("leaflet")
+#install.packages("writexl")
+library(sf)
+library(leaflet)
+library(dplyr)
+library(readxl)
+library("writexl")
+```
+
+* Set working directory. SAVE DATA FILES FROM TEAMS, CHANGE WD TO LOCATION YOU SAVE THEM AND ALL OTHER CODE SHOULD WORK 
+#```{r wd}
+#setwd("~/Downloads/DSPG/Hanover")
+#```
+
+# read in shapefile (most up to date version with some variables)
+```{r wd}
+shapefile <- st_read("Hanover_Parcels.shp")
+str(shapefile)
+```
+
+# read in excel sheet (more parcel variables - tax assessed data)
+```{r wd}
+assess <- read_excel("Assessor_Data.xlsx")
+str(assess)
+```
+
+# Create a leaflet map of shapefile 
+```{r wd}
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = shapefile)  # Add the shapefile to the map
+```
+
+# summarize zoning variable from shapefile 
+```{r sum}
+# Convert the vector to a factor (categorical variable)
+categorical_var <- shapefile$ZONING_LIS
+# Summarize the categorical variable
+summary_stats <- table(categorical_var)
+# View the summary statistics
+print(summary_stats)
+```
+
+# summarize zoning variable from assessor data  
+```{r sum}
+# Convert the vector to a factor (categorical variable)
+categorical_var <- assess$Zone
+# Summarize the categorical variable
+summary_stats <- table(categorical_var)
+# View the summary statistics
+print(summary_stats)
+```
+
+
+# Merge the two data sets to get one huge data set 
+```{r }
+merged_data <- merge(shapefile, assess, by.x = "GPIN", by.y = "GPIN")
+
+# df data set shows the 4,631 parcels who do not have the same zone
+fik <- merged_data[merged_data$Zone != merged_data$ZONING_LIS, ]
+df <- fik[, c("Zone", "ZONING_LIS")]
+```
+
+#create combined variable for zone
+```{r }
+#dataset$newvariable <- ifelse(condition, if true, if false)
+#condition = zoning variable is the same in both data sets
+# if true = use the variable, if false = "NULL"
+merged_data$comb_zone <- ifelse(merged_data$Zone == merged_data$ZONING_LIS, merged_data$Zone, "NULL")
+
+#dataset$newvariable <- ifelse(condition, if true, if false)
+#condition = zoning variable is "See Map" from most up-to-date, "shapefile" data set 
+# if true = use the zoning variable from the assessor excel file
+# if false = use most recent data set "shapefile"
+merged_data$comb_zone <- ifelse(merged_data$ZONING_LIS == "See Map", merged_data$Zone, merged_data$ZONING_LIS)
+
+# Specify the variables to relocate
+variables_to_relocate <- c("GPIN", "comb_zone", "LOT_ACRES", "LAND_VALUE", "LEGALDESC")
+# Relocate the variables - move important variables to front of data set 
+merged_data <- merged_data %>%
+  select(one_of(variables_to_relocate), everything())
+```
+
+
+
+# Summary stats for new, cleaned variable (comb_zone)
+```{r sum}
+allzones <- merged_data[, c("comb_zone", "Zone", "ZONING_LIS")]
+
+# Convert the vector to a factor (categorical variable)
+categorical_var <- assess$
+# Summarize the categorical variable
+summary_stats <- table(categorical_var)
+# View the summary statistics
+print(summary_stats)
+```
+
+
+
+
+## NEXT STEPS 
+#get zoning info from Hanover 
+
+# create a variable for landuse - residential, commercial, industrial, agricultural, conservation 
+```{r }
+
+landuse <- function(zone) {
+  if (zone = "C-1") {
+    return("conservation")
+  } else if (zone == "RR-C") {
+    return("agriculture")
+  } else if (zone == "A-1" | zone == "RR-A") {
+    return("residential")
+  } else if (zone == "R-1" | zone == "R-2" | zone == "R-2") {
+    return("commercial")
+  } else {
+    return("industrial")
+  }
+}
+```
+
+
+# Creat a leaflet with parcels colored by land use variable
+# leaflet 
+```{r }
+seemap <- shapefile[ifelse(shapefile$zone == "See Map", TRUE, FALSE), ]
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = seemap)  # Add the shapefile to the map
+```
+
+
+
+
+
