@@ -161,9 +161,18 @@ color_map <- colorFactor(palette = viridis(length(unique(merged_data$land_use)))
 
 leaflet() %>%
   addTiles() %>%
-  addPolygons(data = colored_land, color = ~color_map(colored_land$land_use), stroke = 1, weight = 1)
+  addPolygons(data = colored_land, color = ~color_map(colored_land$land_use), stroke = 1, weight = 1) %>%
+  addLegend(values = land_use, pal = color_map, position = "bottomright", title = "Land Parcel Types in Hanover County")
 
 ```
+
+
+```{r}
+
+```
+
+
+
 
 ```{r}
 num_cat <- 34
