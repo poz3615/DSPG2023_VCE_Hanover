@@ -153,12 +153,15 @@ print(summary_stats)
 # Create a leaflet with parcels colored by land use variable
 ```{r}
 
+colored_land <- merged_data %>%
+  select(geometry, land_use)
+
 color_map <- colorFactor(palette = viridis(length(unique(merged_data$land_use))), 
                          domain = merged_data$land_use)
 
 leaflet() %>%
   addTiles() %>%
-  addPolygons(data = merged_data, weight = 0.1, smoothFactor = 0.2, fillColor = ~color_map(land_use))
+  addPolygons(data = colored_land, color = ~color_map(colored_land$land_use), stroke = 1, weight = 1)
 
 ```
 
