@@ -152,7 +152,7 @@ print(summary_stats)
 
 # Create a leaflet with parcels colored by land use variable
 ```{r}
-
+# Leaflet of the land types
 colored_land <- merged_data %>%
   select(geometry, land_use)
 
@@ -162,12 +162,27 @@ color_map <- colorFactor(palette = viridis(length(unique(merged_data$land_use)))
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = colored_land, color = ~color_map(colored_land$land_use), stroke = 1, weight = 1) %>%
-  addLegend(values = land_use, pal = color_map, position = "bottomright", title = "Land Parcel Types in Hanover County")
+  addLegend(values = colored_land$land_use, pal = color_map, position = "bottomright", title = "Land Parcel Types in Hanover County")
 
 ```
 
 
 ```{r}
+# Employment Graph
+employ <- read.csv("Employment.csv")
+employ <- head(employ, -1)
+employ <- na.omit(employ)
+
+ggplot(employ, aes(x = EmploymentTypes, y = Percent, fill = EmploymentTypes)) +
+  geom_col() +
+  scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none") +
+  labs(title = "Total Employment For Each Industry", 
+       x = "Percent",
+       y = "Industry") +
+  coord_flip() 
+  
+  
 
 ```
 
