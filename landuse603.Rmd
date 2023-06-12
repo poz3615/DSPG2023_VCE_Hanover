@@ -6,11 +6,11 @@ date: '2023-05-23'
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-install.packages("sf")
-install.packages("leaflet")
-install.packages("writexl")
-install.packages("colorspace") 
-install.packages("RColorBrewer")
+#install.packages("sf")
+#install.packages("leaflet")
+#install.packages("writexl")
+#install.packages("colorspace") 
+#install.packages("RColorBrewer")
 library(sf)
 library(leaflet)
 library(dplyr)
@@ -20,16 +20,18 @@ library(colorspace)
 library(RColorBrewer)
 library(ggplot2)
 library(plotly)
+library(viridis)
+library(viridisLite)
 ```
 
 * Set working directory. SAVE DATA FILES FROM TEAMS, CHANGE WD TO LOCATION YOU SAVE THEM AND ALL OTHER CODE SHOULD WORK 
 ```{r wd}
-setwd("C:/Users/ariadnetynes/Desktop/VT_DSPG/DSPG2023_VCE_Hanover")
+#setwd("C:/Users/ariadnetynes/Desktop/VT_DSPG/DSPG2023_VCE_Hanover")
 ```
 
 # read in shapefile (most up to date version with some variables)
 ```{r wd}
-shapefile <- st_read("Hanover_Parcels/Hanover_Parcels.shp")
+shapefile <- st_read("Hanover_Parcels.shp")
 ```
 
 # read in excel sheet (more parcel variables - tax assessed data)
@@ -148,9 +150,15 @@ print(summary_stats)
 ```
 
 
-# Creat a leaflet with parcels colored by land use variable
+# Create a leaflet with parcels colored by land use variable
 ```{r}
 
+color_map <- colorFactor(palette = viridis(length(unique(merged_data$land_use))), 
+                         domain = merged_data$land_use)
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = merged_data, weight = 0.1, smoothFactor = 0.2, fillColor = ~color_map(land_use))
 
 ```
 
