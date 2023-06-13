@@ -186,7 +186,14 @@ ggplot(employ, aes(x = EmploymentTypes, y = Percent, fill = EmploymentTypes)) +
 
 ```
 
+```{r}
+soilshape <- st_read("soil/hanoversoil.shp")
+soillabels <- read_excel("soil/soillabels.xlsx")
 
+
+
+
+```
 
 
 ```{r}
