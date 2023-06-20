@@ -9,16 +9,18 @@
 
 library(shiny)
 #setting working directory 
-setwd("C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil")
+#setwd("C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil")
 
 #reading in packages
 library(readxl)
 library(ggplot2)
 library(viridis)
 library(sf)
-
+library(shinydashboard)
+library(DT)
+library(bslib)
 #assigning the data file path to soil excel
-soil_excel <- "C:/Users/gwiggins/Downloads/DSPG2023_VCE_Hanover2/testtt/soillabels.xlsx"
+soil_excel <- "soillabels.xlsx"
 
 #reading in soil excel and assigning it to soil data
 soil_data <- read_excel(soil_excel)
@@ -32,10 +34,6 @@ rateacre_data_clean <- rateacre_data[-c(119,120), ]
 
 #turning soil rating column to a factor to use viridis 
 rateacre_data_clean$soil_rating <- factor(rateacre_data_clean$soil_rating) 
-
-
-
-
 
 
 
@@ -59,6 +57,12 @@ ui <- fluidPage(
         mainPanel(
            plotOutput("distPlot")
         )
+    ),
+    
+    theme = bs_theme(
+      
+      bootswatch = "darkly"
+      
     )
 )
 
