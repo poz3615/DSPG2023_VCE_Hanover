@@ -1,0 +1,229 @@
+---
+title: "conservation"
+author: "Gabe Wiggins"
+date: "2023-06-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd("C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/conservation")
+
+install.packages("sf")
+install.packages("ggplot2")
+library(sf)
+library(ggplot2)
+```
+
+```{r}
+afdshape <- st_read("afd/hanover_afd_parcels.shp")
+names(afdshape)[names(afdshape) == "nca"] <- "afd"
+```
+
+```{r}
+consparcel <- st_read("conservation_parcels/hanover_consland_parcels_labels_real.shp")
+```
+
+```{r}
+easeshape <- st_read("easement/hanover_easeland_parcels.shp")
+```
+
+```{r}
+ncashape <- st_read("nca/hanover_nca_parcels.shp")
+```
+
+```{r}
+plot(afdshape)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = afdshape, aes(fill = afd))
+```
+
+```{r}
+#Agricultural Forestal Districts
+
+library(leaflet)
+library(sf)
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+# Convert shapefile to leaflet-compatible format
+afdleaflet <- afdshape %>%
+  st_as_sf() 
+
+# Create the map using two "addPolygons" one for data and one for county shape
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = afdleaflet,
+    fillColor = ~ifelse(afd == 1, 
+                        "green", 
+                        "transparent"),
+    color = ~ifelse(afd == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(afd == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = boundaryleaflet,
+    fillColor = "transparent",
+    color = "black",
+    fillOpacity = 0,
+    weight = 1
+  )
+```
+
+```{r}
+# County Conservation Land
+
+# Convert shapefile to leaflet-compatible format
+consleaflet <- consparcel %>%
+  st_as_sf() 
+
+# Create the map using two "addPolygons" one for data and one for county shape
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = consleaflet,
+    fillColor = ~ifelse(conland == 1, 
+                        "blue", 
+                        "transparent"),
+    color = ~ifelse(conland == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(conland == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = boundaryleaflet,
+    fillColor = "transparent",
+    color = "black",
+    fillOpacity = 0,
+    weight = 1
+  )
+```
+
+```{r}
+# County Conservation Easements
+
+# Convert shapefile to leaflet-compatible format
+easeleaflet <- easeshape %>%
+  st_as_sf() 
+
+# Create the map using two "addPolygons" one for data and one for county shape
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = easeleaflet,
+    fillColor = ~ifelse(easement == 1, 
+                        "red", 
+                        "transparent"),
+    color = ~ifelse(easement == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(easement == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = boundaryleaflet,
+    fillColor = "transparent",
+    color = "black",
+    fillOpacity = 0,
+    weight = 1
+  )
+```
+
+```{r}
+# County NCA
+
+# Convert shapefile to leaflet-compatible format
+ncaleaflet <- ncashape %>%
+  st_as_sf() 
+
+# Create the map using two "addPolygons" one for data and one for county shape
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = ncaleaflet,
+    fillColor = ~ifelse(nca == 1, 
+                        "yellow", 
+                        "transparent"),
+    color = ~ifelse(nca == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(nca == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = boundaryleaflet,
+    fillColor = "transparent",
+    color = "black",
+    fillOpacity = 0,
+    weight = 1
+  )
+```
+```{r}
+# All Conservation Areas
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(
+    data = afdleaflet,
+    fillColor = ~ifelse(afd == 1, 
+                        "green", 
+                        "transparent"),
+    color = ~ifelse(afd == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(afd == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = consleaflet,
+    fillColor = ~ifelse(conland == 1, 
+                        "blue", 
+                        "transparent"),
+    color = ~ifelse(conland == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(conland == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = easeleaflet,
+    fillColor = ~ifelse(easement == 1, 
+                        "red", 
+                        "transparent"),
+    color = ~ifelse(easement == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(easement == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = ncaleaflet,
+    fillColor = ~ifelse(nca == 1, 
+                        "yellow", 
+                        "transparent"),
+    color = ~ifelse(nca == 1, 
+                    "transparent", 
+                    "black"),
+    fillOpacity = 0.8,
+    weight = ~ifelse(nca == 1, 1, 0)
+    ) %>%
+  addPolygons(
+    data = boundaryleaflet,
+    fillColor = "transparent",
+    color = "black",
+    fillOpacity = 0,
+    weight = 1
+  )
+```
+
+```
