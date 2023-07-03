@@ -1,0 +1,243 @@
+---
+title: "Soils"
+author: "Deep"
+date: "2023-06-30"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf)
+library(leaflet)
+library(dplyr)
+library(readxl)
+library("writexl")
+library(colorspace) 
+library(RColorBrewer)
+library(ggplot2)
+library(plotly)
+library(viridis)
+library(leaflet.extras)
+library(htmlwidgets)
+library(webshot)
+library(purrr)
+```
+
+```{r cars}
+#setting working directory 
+#setwd("C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil")
+```
+
+
+
+```{r}
+#assigning the data file path to soil excel
+soil_excel <- "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/HanoverShiny/data/soil/soillabelsranking.xlsx"
+
+#reading in soil excel and assigning it to soil data
+soil_data <- read_excel(soil_excel)
+```
+
+```{r}
+#pulling just Rating, and Acres in AOI columns from soil data and assigning it to rateacre data
+rateacre_data <- soil_data[, c("Rating", "Acres in AOI")]
+```
+
+```{r}
+#re-naming Rating and Acres in Aoi columns to soil rating and acres
+colnames(rateacre_data) <- c("soil_rating", "acres")
+rateacre_data_clean <- rateacre_data[-c(120), ]
+```
+
+```{r}
+#turning soil rating column to a factor to use viridis 
+rateacre_data_clean$soil_rating <- factor(rateacre_data_clean$soil_rating) 
+
+total_acres <- aggregate(acres ~ soil_rating, data = rateacre_data_clean, FUN = sum)
+```
+
+```{r}
+#creating a sideways bar plot showing the acres of each rating in the county with viridis
+s <- ggplot(total_acres, aes(x = soil_rating, y = acres, fill = soil_rating)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none") +
+  labs(x = "Soil Rating", y = "Acreage", title = "USDA Soil Rating by Acerage in Hanover County", caption = "Data Source: USDA, NRCC Web Soil Survey, 2019") 
+
+soil_interactive <- ggplotly(s)
+soil_interactive
+```
+
+```{r}
+#trying to read in soil map shapefile
+soilmap <- st_read("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/HanoverShiny/data/soil/hanoversoil.shp")
+```
+
+```{r}
+ggplot() + 
+  geom_sf(data = soilmap,
+          aes(fill = "MUSYM"),
+          color = "black") +
+          scale_fill_viridis_d()
+```
+
+```{r}
+#soils based on suitability for solar installations 
+
+#assigning the data file path to soil excel
+solarsoil_excel <- "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/HanoverShiny/data/soil/solarsoils.xlsx"
+
+#reading in soil excel and assigning it to soil data
+solarsoil_data <- read_excel(solarsoil_excel)
+
+#pulling just Rating, and Acres in AOI columns from soil data and assigning it to rateacre data
+rateacre_solar <- solarsoil_data[, c("Rating", "Acres_in_AOI")]
+```
+
+```{r}
+#re-naming Rating and Acres in Aoi columns to soil rating and acres
+colnames(rateacre_solar) <- c("soil_rating", "acres")
+
+```
+
+```{r}
+#turning soil rating column to a factor to use viridis 
+rateacre_solar$soil_rating <- factor(rateacre_solar$soil_rating) 
+```
+
+```{r}
+#creating a sideways bar plot showing the acres of each rating in the county with viridis
+ggplot(rateacre_solar, aes(x = soil_rating, y = acres, fill = soil_rating)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none") +
+  labs(x = "Soil Rating", 
+       y = "Acreage", 
+       title = "Suitability for Soil-Anchored Solar Array by Acerage in Hanover County", 
+       caption = "Data Source: USDA, NRCC Web Soil Survey, 2019") 
+```
+
+```{r}
+soilshape <- st_read("Soil_Mapping/soil_map/soil_map/VA085/spatial/soilmu_a_va085.shp")
+soillabels <- read_excel("soil/soillabelsranking.xlsx")
+
+joined_soil <- left_join(soilshape, soillabels, by = c("MUSYM" = "Map Unit Symbol")) 
+
+joined_data <- joined_soil %>% 
+  select(MUSYM, "Map Unit Name", ...3, geometry, Rating) %>%
+  mutate(labels = Rating)
+
+#st_write(joined_data, "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/joined_soil.shp")
+color_map <- colorFactor(palette = alpha(turbo(length(unique(joined_data$Rating))), 1), 
+                         domain = joined_data$Rating)
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = joined_data, color = ~color_map(joined_data$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(values = joined_data$Rating, pal = color_map, position = "bottomright", title = "Soil Quality in Hanover County")
+
+
+```
+
+```{r}
+
+filter_allP <- joined_data %>%
+  filter(Rating == "All areas are prime farmland")
+
+color_map <- colorFactor(palette = alpha(turbo(length(unique(joined_data$Rating))), 1), 
+                         domain = joined_data$Rating)
+
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filter_allP, color = ~color_map(filter_allP$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(values = filter_allP$Rating, pal = color_map, position = "bottomright", title = "All Soil Found to Be Prime Farmland")
+```
+
+```{r}
+filter_allS <- joined_data %>%
+  filter(Rating == "Farmland of statewide importance")
+
+color_map <- colorFactor(palette = c("#00A878FF"), domain = filter_allS$Rating)
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filter_allS, color = ~color_map(filter_allS$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addLegend(values = filter_allS$Rating, pal = color_map, position = "bottomright", title = "All Farmland to Be of Statewide Importance")
+```
+
+```{r}
+
+filter_allD <- joined_data %>%
+  filter(Rating == "Prime farmland if drained")
+
+color_map <- colorFactor(palette = c("#377EB8FF"), domain = filter_allD$Rating)
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filter_allD, color = ~color_map(filter_allD$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(values = filter_allD$Rating, pal = color_map, position = "bottomright", title = "All Farmland That Can Be Prime If Drained")
+```
+
+```{r}
+
+filter_allN <- joined_data %>%
+  filter(Rating == "Not prime farmland")
+
+color_map <- colorFactor(palette = c("#8B0000FF"), domain = filter_allN$Rating)
+
+
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filter_allN, color = ~color_map(filter_allN$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(values = filter_allN$Rating, pal = color_map, position = "bottomright", title = "All Not Prime Farmland")
+```
+
+```{r}
+# Soil Ratings (not rankings this time)
+
+soilshape <- st_read("Soil_Mapping/soil_map/soil_map/VA085/spatial/soilmu_a_va085.shp")
+soillabels <- read_excel("soil/solarsoils.xlsx")
+
+joined_soil <- left_join(soilshape, soillabels, by = c("MUSYM" = "Map_unit_symbol")) 
+
+joined_data <- joined_soil %>% 
+  select(MUSYM, Map_unit_name, geometry, Rating) %>%
+  mutate(labels = Rating)
+
+my_colors <- c("#FDE725FF", "#7AD151FF", "#414487FF")
+
+#color_map <- colorFactor(palette = alpha(plasma(length(unique(joined_data$Rating))), 1), 
+                         #domain = joined_data$Rating)
+unique_ratings <- unique(joined_data$Rating)
+color_map <- colorFactor(palette = my_colors, domain = unique_ratings)
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = joined_data, color = ~color_map(joined_data$Rating), stroke = FALSE, weight = 1, fillOpacity = 1) %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(values = joined_data$Rating, pal = color_map, position = "bottomright", title = "Soil Quality in Hanover County") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+
+```

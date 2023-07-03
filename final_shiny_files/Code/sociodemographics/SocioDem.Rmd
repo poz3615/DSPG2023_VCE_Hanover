@@ -1,0 +1,32 @@
+---
+title: "SocioDem"
+author: "Deep"
+date: "2023-07-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Employment Graph
+employ <- read.csv("Employment.csv")
+employ <- head(employ, -1)
+employ <- na.omit(employ)
+
+ggplot(employ, aes(x = EmploymentTypes, y = Percent, fill = EmploymentTypes)) +
+  geom_col() +
+  scale_fill_viridis(discrete = TRUE) +
+  theme(legend.position = "none") +
+  labs(title = "Total Employment For Each Industry", 
+       x = "Industry",
+       y = "Percent",
+       caption = "Data Source: US Census ACS 5-Year 2019 Data") +
+  coord_flip() 
+  
+  
+
+```
+

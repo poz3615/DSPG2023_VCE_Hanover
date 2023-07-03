@@ -1,0 +1,124 @@
+---
+title: "Soil-Types"
+author: "Gabe Wiggins"
+date: "2023-06-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+#setting working directory 
+setwd("C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil")
+```
+
+```{r}
+#reading in packages
+library(readxl)
+library(ggplot2)
+library(viridis)
+library(sf)
+library(plotly)
+```
+
+```{r}
+#assigning the data file path to soil excel
+soil_excel <- "C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil/soillabels.xlsx"
+
+#reading in soil excel and assigning it to soil data
+soil_data <- read_excel(soil_excel)
+```
+
+```{r}
+#pulling just Rating, and Acres in AOI columns from soil data and assigning it to rateacre data
+rateacre_data <- soil_data[, c("Rating", "Acres in AOI")]
+```
+
+```{r}
+#re-naming Rating and Acres in Aoi columns to soil rating and acres
+colnames(rateacre_data) <- c("soil_rating", "acres")
+rateacre_data_clean <- rateacre_data[-c(120), ]
+```
+
+```{r}
+#turning soil rating column to a factor to use viridis 
+rateacre_data_clean$soil_rating <- factor(rateacre_data_clean$soil_rating) 
+
+total_acres <- aggregate(acres ~ soil_rating, data = rateacre_data_clean, FUN = sum)
+```
+
+```{r}
+#creating a sideways bar plot showing the acres of each rating in the county with viridis
+s <- ggplot(total_acres, aes(x = soil_rating, y = acres, fill = soil_rating)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none") +
+  labs(x = "Soil Rating", y = "Acreage", title = "USDA Soil Rating by Acerage in Hanover County", caption = "Data Source: USDA, NRCC Web Soil Survey, 2019") 
+
+soil_interactive <- ggplotly(s)
+soil_interactive
+```
+
+########
+
+```{r}
+#trying to read in soil map shapefile
+soilmap <- st_read("hanoversoil.shp")
+```
+
+```{r}
+ggplot() + 
+  geom_sf(data = soilmap,
+          aes(fill = "MUSYM"),
+          color = "black") +
+          scale_fill_viridis_d()
+```
+
+
+################
+
+
+
+```{r}
+#soils based on suitability for solar installations 
+
+#assigning the data file path to soil excel
+solarsoil_excel <- "C:/Users/gwiggins/Documents/hanover-DSPG-2023/data/soil/solarsoils.xlsx"
+
+#reading in soil excel and assigning it to soil data
+solarsoil_data <- read_excel(solarsoil_excel)
+
+#pulling just Rating, and Acres in AOI columns from soil data and assigning it to rateacre data
+rateacre_solar <- solarsoil_data[, c("Rating", "Acres in AOI")]
+```
+
+```{r}
+#re-naming Rating and Acres in Aoi columns to soil rating and acres
+colnames(rateacre_solar) <- c("soil_rating", "acres")
+
+```
+
+```{r}
+#turning soil rating column to a factor to use viridis 
+rateacre_solar$soil_rating <- factor(rateacre_solar$soil_rating) 
+```
+
+```{r}
+#creating a sideways bar plot showing the acres of each rating in the county with viridis
+ggplot(rateacre_solar, aes(x = soil_rating, y = acres, fill = soil_rating)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none") +
+  labs(x = "Soil Rating", 
+       y = "Acreage", 
+       title = "Suitability for Soil-Anchored Solar Array by Acerage in Hanover County", 
+       caption = "Data Source: USDA, NRCC Web Soil Survey, 2019") 
+```
+
+
+
+

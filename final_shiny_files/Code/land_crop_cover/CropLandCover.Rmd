@@ -1,0 +1,492 @@
+---
+title: "CropLandCover"
+author: "Deep"
+date: "2023-06-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf)
+library(leaflet)
+library(dplyr)
+library(readxl)
+library("writexl")
+library(colorspace) 
+library(RColorBrewer)
+library(ggplot2)
+library(plotly)
+library(viridis)
+library(leaflet.extras)
+library(htmlwidgets)
+library(webshot)
+library(purrr)
+```
+
+```{r}
+# Read crop data and labels in
+cropshape <- st_read("crop/cropbyparcel.shp")
+croplabels <- read_excel("crop/croplabels.xlsx")
+aggroup <- read_excel("crop/Ag_grouping_categorized.xlsx")
+
+```
+
+```{r}
+
+# Merge aggroup and croplabels by class name
+joined_labels <- left_join(croplabels, aggroup, by = c("Class_Name" = "Class_Names")) 
+
+#Categorize for conoditional checks
+filterRC <- joined_labels %>%
+  filter(New_Label == "Row crops")
+
+filterHC <- joined_labels %>% 
+  filter(New_Label == "Horticulture crops")
+
+filterSG <- joined_labels %>% 
+  filter(New_Label == "Small grains")
+
+filterDC <- joined_labels %>% 
+  filter(New_Label == "Double cropped")
+
+filterFR <- joined_labels %>%
+  filter(New_Label == "Forages")
+
+filterTR <- joined_labels %>%
+  filter(New_Label == "Tree crops")
+
+filterO <- joined_labels %>%
+  filter(New_Label == "Other")
+
+filterFO <- joined_labels %>%
+  filter(New_Label == "Forested")
+
+filterWL <- joined_labels %>% 
+  filter(New_Label == "Wetlands")
+
+filterW <- joined_labels%>%
+  filter(New_Label == "Water")
+
+filterDEV <- joined_labels %>%
+  filter(New_Label == "Developed")
+
+rowRC <- unique(filterRC$Value)
+rowHC <- unique(filterHC$Value)
+rowSG <- unique(filterSG$Value)
+rowDC <- unique(filterDC$Value)
+rowFR <- unique(filterFR$Value)
+rowTR <- unique(filterTR$Value)
+rowO <- unique(filterO$Value)
+rowFO <- unique(filterFO$Value)
+rowWL <- unique(filterWL$Value)
+rowW <- unique(filterW$Value)
+rowDEV <- unique(filterDEV$Value)
+
+cropshape$crop_list <- apply(cropshape[, c("grd_cd1", "grd_cd2", "grd_cd3", "grd_cd4", "grd_cd5", "grd_cd6", "grd_cd7", "grd_cd8", "grd_cd9", "grd_c10", "grd_c11", "grd_c12", "grd_c13", "grd_c14", "grd_c15", "grd_c16", "grd_c17", "grd_c18", "grd_c19", "grd_c20", "grd_c21", "grd_c22", "grd_c23", "grd_c24")], 1, paste, collapse = ",")
+
+
+# Create a new column of vectors based on conditional checks
+cropshape$crpTypCon <- apply(cropshape[, "crop_list", drop = FALSE], 1, function(row) {
+  categories <- c()  # Initialize an empty vector to store categories
+  
+  for (value in unlist(strsplit(as.character(row), ","))) {
+    if (value %in% rowRC) {
+      categories <- c(categories, "Row crops")
+    } else if (value %in% rowHC) {
+      categories <- c(categories, "Horticulture crops")
+    } else if (value %in% rowSG) {
+      categories <- c(categories, "Small grains")
+    } else if (value %in% rowDC) {
+      categories <- c(categories, "Double cropped")
+    } else if (value %in% rowFR) {
+      categories <- c(categories, "Forages")
+    } else if (value %in% rowTR) {
+      categories <- c(categories, "Tree crops")
+    } else if (value %in% rowO) {
+      categories <- c(categories, "Other")
+    } else if (value %in% rowFO) {
+      categories <- c(categories, "Forested")
+    } else if (value %in% rowWL) {
+      categories <- c(categories, "Wetlands")
+    } else if (value %in% rowW) {
+      categories <- c(categories, "Water")
+    } else if (value %in% rowDEV) {
+      categories <- c(categories, "Developed")
+    }
+  }
+  
+  if (length(categories) > 0) {
+    list(categories)  # Return a list to store the vector as an element
+  } else {
+    list(NA)  # Return NA if no matching values were found
+  }
+})
+
+
+```
+
+```{r}
+#saveRDS(cropshape, "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/cropshapeNew.rds")
+
+loaded_cropdata <- readRDS( "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/cropshapeNew.rds")
+```
+
+```{r}
+
+# NOTE: change column name issue later
+crop_leaf <- loaded_cropdata %>%
+  select(GPIN, geometry, crop_list, new_column)
+
+```
+
+```{r}
+cropTypeIndicators <- crop_leaf %>%
+  mutate(RCInd = map_lgl(crop_list, ~"Row crops" %in% .))
+
+```
+
+
+```{r}
+
+filterLeafRC <- crop_leaf %>%
+  filter(grepl("Row crops", new_column))
+# Row Crops Leaflet
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+RC <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafRC, fillColor = "#fde725", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Row Crops") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#fde725", labels = "Row Crops", title = "Every Parcels That Holds Row Crops") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+  #can add or delete as needed 
+
+RC
+
+#other options: addProviderTiles(providers$Stamen.Toner)
+# addProviderTiles(providers$Esri.NatGeoWorldMap)
+  
+saveWidget(RC, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/RowCrops.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/RowCrops.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/RowCrops.png")
+```
+
+```{r}
+
+filterLeafHC <- crop_leaf %>%
+  filter(grepl("Horticulture crops", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+HC <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafHC, fillColor = "#bddf26", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Horticulture Crops") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#bddf26", labels = "Horticulture Crops", title = "Every Parcels That Holds Horticulture Crops") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+  
+
+HC
+
+saveWidget(HC, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/HorCrops.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/HorCrops.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/HorCrops.png")
+```
+
+```{r}
+
+filterLeafSG <- crop_leaf %>%
+  filter(grepl("Small grains", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+SG <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafSG, fillColor = "#7ad151", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Small Grains") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#7ad151", labels = "Small Grains", title = "Every Parcels That Holds Small Grains") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+SG
+  
+saveWidget(SG, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/SmallGR.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/SmallGR.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/SmallGR.png")
+```
+
+```{r}
+
+filterLeafDC <- crop_leaf %>%
+  filter(grepl("Double cropped", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+DC <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafDC, fillColor = "#44bf70", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Double Cropped") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#44bf70", labels = "Double Cropped", title = "Every Parcels That Holds Double Crops") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+DC
+
+saveWidget(DC, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/DobCrop.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/DobCrop.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/DobCrop.png") 
+```
+
+```{r}
+
+filterLeafFR <- crop_leaf %>%
+  filter(grepl("Forages", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+FR <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafFR, fillColor = "#22a884", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Forages") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#22a884", labels = "Forages", title = "Every Parcels That Holds Forages") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+FR
+saveWidget(FR, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forages.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forages.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forages.png")
+```
+
+```{r}
+
+filterLeafTR <- crop_leaf %>%
+  filter(grepl("Tree crops", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+TR <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafTR, fillColor = "#21918c", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Tree Crops") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#21918c", labels = "Tree Crops", title = "Every Parcels That Holds Tree Crops") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+TR
+saveWidget(TR, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/TreeCrops.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/TreeCrops.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/TreeCrops.png")
+```
+
+```{r}
+
+filterLeafO <- crop_leaf %>%
+  filter(grepl("Other", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+Oth <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafO, fillColor = "#2a788e", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Other") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1)%>%
+  addLegend(position = "topright", colors = "#2a778e", labels = "Other", title = "Every Parcels That Holds Other Crops") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+Oth
+saveWidget(Oth, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Other.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Other.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Other.png")
+```
+
+```{r}
+
+filterLeafFO <- crop_leaf %>%
+  filter(grepl("Forested", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+FO <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafFO, fillColor = "#355f8d", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Forested") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1)%>%
+  addLegend(position = "topright", colors = "#355f8d", labels = "Forested", title = "Every Parcels That Holds Forests") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+FO
+saveWidget(FO, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forests.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forests.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Forests.png")
+```
+
+```{r}
+
+filterLeafWL <- crop_leaf %>%
+  filter(grepl("Wetlands", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+WET <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafWL, fillColor = "#414487", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Wetlands") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#414487", labels = "Wetlands", title = "Every Parcels That Holds Wetlands") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+WET
+
+saveWidget(WET, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Wetlands.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Wetlands.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Wetlands.png")
+```
+
+```{r}
+
+filterLeafW <- crop_leaf %>%
+  filter(grepl("Water", new_column))
+
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+W <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafW, fillColor = "#482475", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Water") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+  addLegend(position = "topright", colors = "#482475", labels = "Water", title = "Every Parcels That Holds Water") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+W
+
+saveWidget(W, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Water.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Water.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Water.png")
+```
+
+```{r}
+filterLeafDEV <- crop_leaf %>%
+  filter(grepl("Developed", new_column))
+# Row Crops Leaflet
+#loading in the county outiline shapefile
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+DEV <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = filterLeafDEV, fillColor = "#440154", fillOpacity = 0.6, stroke = 1, color = "black", weight = 0.3, group = "Developed") %>%
+  addPolygons(data = boundaryleaflet, fillColor = "transparent",color = "black",fillOpacity = 0,weight = 1) %>%
+addLegend(position = "topright", colors = "#440154", labels = "Developed", title = "Every Parcels That Holds Developed Land") %>%
+  addProviderTiles(providers$CartoDB.Positron)
+
+DEV
+saveWidget(DEV, file = "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Developed.html")
+
+webshot("C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Developed.html", "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/Crop_Graphs/Developed.png")
+```
+
+```{r}
+#setting a variable for the crop excel file
+crop_excel <- "C:/Users/deepd/Downloads/DSPG/DSPG2023_VCE_Hanover/DSPG2023_VCE_Hanover/HanoverShiny/data/crop/croplabelswithcategory.xlsx"
+
+#reading in the crop excel file and assigning it to crop data
+crop_data <- read_excel(crop_excel)
+```
+
+```{r}
+#selecting just Count and Category columns from the data and assigning it to category data
+category_data <- crop_data[, c("Count", "Category")]
+
+```
+
+```{r}
+category_data$Category <- factor(category_data$Category)
+```
+
+```{r}
+# Sum up the integers by category
+summed_cat <- category_data %>%
+  group_by(Category) %>%
+  summarise(SumCount = sum(Count)) %>%
+  ungroup()
+```
+
+```{r}
+#creating bar graph of count by category
+ggplot(summed_cat, aes(x = Category, 
+                          y = SumCount, 
+                          fill = Category)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold")) +
+  labs(x = "Use Category", 
+       y = "Acres", 
+       title = "Land Use in Hanover County by Category", 
+       caption = "Data Source: USDA Cropland-CROS, 2022") 
+  
+```
+
+```{r}
+#subsetting the crop data to only contain categories that are crops and assigning it to just crop
+justcrop <- subset(crop_data, 
+                   !(Category == "forested" | 
+                       Category == "developed" | 
+                       Category == "wetlands" | 
+                       Category == "other" |
+                       Category == "water"))
+```
+
+```{r}
+#setting Category to a factor so we can run viridis
+justcrop$Category <- factor(justcrop$Category) 
+```
+
+```{r}
+# Sum up the integers by category
+summed_catSub <- justcrop %>%
+  group_by(Category) %>%
+  summarise(SumCount = sum(Count)) %>%
+  ungroup()
+```
+
+```{r}
+#plotting count by category with just crop data in a sideways bar graph
+ggplot(summed_catSub, aes(x = Category, y = SumCount, fill = Category)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_d(option = "viridis") +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold")) +
+  labs(x = "Crop Type", 
+       y = "Acres", 
+       title = " Land Crops in Hanover County by Category", 
+       caption = "Data Source: USDA Cropland-CROS, 2022") 
+```
+
+
