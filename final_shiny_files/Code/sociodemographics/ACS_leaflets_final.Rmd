@@ -1,0 +1,468 @@
+---
+title: "ACS Data & Mapping"
+author: "Susan E. Chen"
+Last Update: 5/25/2023
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: yes
+    theme: readable
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+colorlinks: yes
+urlcolor: blue
+linkcolor: blue
+citecolor: blue
+anchorcolor: blue
+toccolor: blue
+fontsize: 12pt
+---
+
+```{r setup, message = FALSE }
+knitr::opts_chunk$set(echo = TRUE) # setting so all your code chunks displayed. 
+#Load all packages here. For this exercise I load them before I use them 
+#because you are learning.
+library(tidycensus)
+```
+
+# Quick review of setting up your files
+
+For every project you will need to have a file setup. Your graduate student fellows will set up the file structure for your summer projects. Going forward, however, you may want to think about doing this for yourself. I recommend the following structure:
+
+        - a project folder
+        - a subfolder for data
+        - a subfolder for scripts (.R, .Rmd, .do, .sas)
+        - a subfolder for images
+        - a subfolder for docs or pdfs
+        
+For example, the name of my project is *appalachia* (note no spaces in the name.) In this folder I have a data subfolder where I will store data I have downloaded or received from the stakeholder. I also have an images subfolder where I store any images I generate in R.
+
+## Setting your working directory
+
+Now that you have a project folder, let us go ahead and set it up so that R automatically reads from that project folder. Please see online notes [here](https://support.posit.co/hc/en-us/articles/200549016-Customizing-the-RStudio-IDE) on how to set up your `global options` and how to set your working directory permanently. This saves you having to type out the entire path every time. For example, my path is C:/Users/ecsusan/Dropbox/2021VT-DSPG-FILES/Appalachia/ which is way too long. I just want R to open in the Appalachia workign directory so I set my global options to this path.
+
+        
+# Quick review of extracting ACS data
+I always start by setting my working directory to the folder where I want to save my work. In the code chunk below I use the `setwd()` command in `R` to do this. Note if you want to see your working directory you can always type `getwd()` at the prompt to find out where you are.
+
+# Downloading Census Data With R
+
+In this module I will show you how you can use R to get Census data for you from the Census website. This is a quick and easy way to pull Census data. The best part is that it is easy to replicate and to revise if you want to add more variables ! To pull data from Census you will use the `tidycensus` package. You should install it if you do not already have it. Recall to install a package you type install.packages("tidycensus") or you can click `Tools` in the above menu then `Install` and then type in tidycensus in the dialog box.
+
+## Get a Census API key
+To download Census data using the tidycensus package you need to get an API key.  You can get a Census API key [here]( https://api.census.gov/data/key_signup.html). Please fill in your name and Organization then submit to get your key. Once you have your key you need to put it somewhere that you can remember it. Note your key is like a password so you should make sure to secure it. I recommend that you save this API key in a `.Renviron` in your project working directory. If you do this then you do not need to remember it. You also do not have to type it into your *.Rmd file.  
+Here are the steps to create a `.Renviron` file and saving your key. Open your text editor(In Windows this would be Notepad and on your Mac it is TextEdit). Copy the statement `census_api_key=KEYGIVENBYCENSUS = XXXX`. Where you see XXXX please insert the key you got from Census (the long string of numbers you got when you clicked on the link above to get an API key). Save this in the same working directory. You are now safe to pull data from the Census Bureau. 
+
+```{r set_up_API}
+readRenviron("~/.Renviron") #read in your Census API key
+Sys.getenv("census_api_key") #confirm you have read in your Census API key
+```
+
+In the code chunk above you will see the command  `Sys.getenv("census_api_key")` after you have read in the API key with the `readRenviron("~/.Renviron")`  statement. I do this to check to make sure my API key was read in properly. Note that I commented it out because once I checked I don't want you to see my key.
+
+
+## Setting up the list of counties to pull
+
+Our objective in the first step is to put together a list of counties that we want to pull and map using ACS data. If you are interested here is a list of FIPS codes for all US counties [database here](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/national/home/?cid=nrcs143_013697). As you will see below, knowing the FIPS for counties and states will help you to easily pull data from Census.
+
+
+## Getting ACS data (variables)
+We are now going to pull ACS data. To have R pull data for you quickly requires that you know what you want to pull. So here are my recommended steps
+
+1. Determine the variables you want to analyze for your project. In the example below, my variable of interest is median population income. To find this variable I look at the ACS data tables online to make sure what I need is there and note how it is displayed. *You must always check the data table, you cannot just pull data.* 
+
+2. Once I am sure that the information I want is in the Cansus ACS data tables, I will then identify the "names" of the variables I want to pull from the Census archive. You can teach yourself how to figure out the names by using this [Census tutorial link](https://www.census.gov/data/academy/webinars/2022/getting-started-with-american-community-survey-data.html). There is also a pdf of the webinar at the same link. I prefer the pdf because I can scan it quickly but the webinar video is really good for first timers. The video explains how to identify the name of the variable you want to pull. 
+
+3. Expert Level Step: Another alternative for getting the variable names, and the one I will use here, is to read in a data table from Census and ask for the variable names. Whether you use this way or the one in (2)  you have to have some clue about the naming convention so go back to the previous paragraph and web link to learn the naming convention. Here is some code that reads in the 5 year estimates for the ACS data in 2019 and saves them in a `list` in R.  The list is called `vars`. Look to the Right to see it under `Data`. Click on it and scroll through the `vars` file to find the name of the variable you want. 
+
+```{r getCensusvarNam}
+library(tidycensus)
+# Set a year of interest
+this.year = 2019
+
+# This looks at the 5 year estimates
+# You can also do "acs1"
+vars <- load_variables(year = 2019,
+                      dataset = "acs5",
+                      cache = TRUE)
+
+# There are 22711 possible variables 
+dim(vars)
+
+# typeof(vars) # To check the data type in R
+```
+
+
+
+### Variable Names in Census
+
+Using the dataset of variable names `vars`, I can see the list of variables in the 2019 ACS5. There are lots of them. You wil see they have names like B02001_0001. This is unhelpful so what I usually do is pick out the ones I want then give them my own names to make then easier to use. This is an example of what I do before I start to pull data. 
+
+    popululation = "B02001_001",
+    median.gross.rent = "B25064_001",
+    median.household.income = "B19013_001",
+    rent.burden = "B25071_001",
+    white = "B03002_003", 
+    af.am = "B03002_004",
+    hispanic = "B03002_012",
+    am.ind = "B03002_005",
+    asian = "B03002_006",
+    nh.pi = "B03002_007",
+    multiple = "B03002_009",
+    other = "B03002_008"
+
+### Pulling one variable from American Community Survey
+
+Rather than pulling multiple variables, for this exercise I will pull the data for one county for one year. The variable I will pull is meidan.household.income which we know from the table is `B19013_001`. In the code chunk below I pull the data for Powhatan county only and this is for the 5 year ACS (set option of `survey = "acs5"` in code chunk below) in 2019. Note the use of `this.year`. Recall I set `this.year=2019` above. This means later on if I want to change in the year I only have to do it *one* place in my program. You can also feed in a vector here for multiple years. Using this.year instead of the actual data year can help you if you have to program multiple years. You only need to change one line of code at the top of a program. Program intelligently.
+
+In the `pullPow` code chunk below you will see the syntax for pulling variables from the ACS and saving in a . 
+You can look at the data object `VA_income` and see the variables you have pulled from the ACS. In the list below I tell you want these variables are. 
+
+    GEOID - a helpful ID for each tract in Powhatan county
+    name - the census name of the tract (FIPS tract id)
+    variable - the variable name (in the case median.household.income)
+    estimate - the estimate of the variable from census table
+    geometry - stuff you need to make a map (boundaries of the tracts for mapping)
+
+The function we use comes from the `tidycensus` package in R. The function is `get_acs()`. Note putting results='hide' in the code chunk options prevents useless output (in this case from being displaye). Trying deleting it and look at your html file.   
+```{r pullPow, results='hide'}
+my_vars <- c(median.household.income ="B19013_001")
+
+VA_income <- get_acs(survey = "acs5", geography = "tract", year=this.year, 
+                  state = "VA", county = "Hanover", geometry = TRUE,
+                  variables = my_vars)
+#typeof(VA_income) # To check the data type in R
+```
+
+### Pulling multiple variables from American Community Survey
+
+```{r pullMorePow, results='hide'}
+
+my_vars <- c(median.household.income ="B19013_001", 
+             popululation = "B02001_001",
+             median.gross.rent = "B25064_001")
+
+VA2_income <- get_acs(geography = "tract", year=(2019), 
+                  state = "VA", county = "Hanover", geometry = TRUE,
+                  variables = my_vars)
+summary(VA2_income)
+```
+
+## Other Census Products
+
+You can also use get_acs to get 1 year ACS data by setting survey="acs1". The `tidycensus` package can also be used to pull Decennial Census data. Here is a [link](https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf) to an explanation of all the functions in the `tidycensus` package and how to access other Census data products.
+
+
+# Mapping ACS variables with a Choropleth Map
+
+Now that we have pulled some variables let us go ahead and map them. This is a simple map and over the next 9 weeks you will make much more interesting ones. This can, however, get you started.
+
+Once you have downloaded your ACS data, you can use the plot function to quickly map your variable of interest. Recall the data has one variable and the value is stored in the variable `estimate`. 
+
+```{r}
+head(VA_income)
+plot(VA_income["estimate"]) #quick plot
+```
+
+At this point I would like to export my data to my hard drive. This is helpful if you plan to use it in RShiny apps. Here is how you save the data as an R dataframe. I challenge you to figure out (by Googling) how to save and export your file in excel or other formats.
+
+```{r} 
+save(VA_income,file="ACS5.2019.Rda") 
+
+``` 
+In another R script you can load the data that you saved above 
+
+```{r load_data} 
+load("ACS5.2019.Rda") 
+``` 
+
+# For your practice
+Pull some variables from ACS5 for your favorite county anywhere in US and map them. Share your map on Teams ! Save your data as an excel file. Don't share this with me.
+
+
+## NEXT WEEK: is Making Maps With ggplot And More
+
+ The `ggplot2` package is also useful to drawing maps. In the code chunk below I use the `VA_income` dataset to show you how to draw a simple map with the `ggplot()` function in this package.
+```{r} 
+library(ggplot2)
+ggplot(data = VA_income, aes(fill = estimate)) + geom_sf() + scale_fill_distiller(palette = "RdPu", direction = 1) + labs(title = "  Median Household Income, 2019", 
+        caption = "Data source: 2019 5-year ACS, US Census Bureau", 
+        fill = "ACS estimate") +  
+   theme_void()  #Better plot 
+
+```
+
+## Multiple ACS variables and maps
+
+If you have a list of variables you need then you can modify the above code chunk to allow a list of variables that you place in a vector. Below you see my variable names are in the row vector:  
+
+     c(population = "B02001_001", 
+     median.gross.rent = "B25064_001", 
+     median.household.income = "B19013_001", 
+     rent.burden = "B25071_001", 
+     white = "B03002_003",  
+     af.am = "B03002_004", 
+     hispanic = "B03002_012", 
+     am.ind = "B03002_005", 
+     asian = "B03002_006", 
+     nh.pi = "B03002_007", 
+     multiple = "B03002_009", 
+     other = "B03002_008") 
+
+I feed this vector to `variables = c(...)` see below chunk. 
+```{r} 
+## Names for variable types 
+# Gives five year estimates 
+# To get Goochland County you will need to change Powhatan to Goochland 
+ACS5.2019 <- get_acs(geography = "tract", year=this.year, 
+                   state = "VA", county = c("Hanover"), geometry = TRUE, 
+                   variables = c(population = "B02001_001", 
+                                 median.gross.rent = "B25064_001", 
+                                 median.household.income = "B19013_001", 
+                                 rent.burden = "B25071_001", 
+                                 white = "B03002_003",  
+                                 af.am = "B03002_004", 
+                                 hispanic = "B03002_012", 
+                                 am.ind = "B03002_005", 
+                                 asian = "B03002_006", 
+                                 nh.pi = "B03002_007", 
+                                 multiple = "B03002_009", 
+                                 other = "B03002_008")) 
+head(ACS5.2019) 
+``` 
+<!-- Now that I have read in all the variables I will need to use the `dplyr` package to filter only the ones that I want to map.  -->
+
+<!-- ## Put ACS data on a map -->
+
+<!-- Here is a simple way to draw a map. Better ways exist but this is a rough guide. Below I only want to map one variable: county level Median Household Income. I filter the data and create a new data object `myacs_map` which contains only the one variable I wish to draw the maps with. The `filter()` function is part of the `dplyr` package -->
+
+```{r} 
+library(dplyr) 
+myacs_map <- filter(ACS5.2019, variable == "median.household.income") 
+
+zap <- ggplot(myacs_map$geometry) +  
+     geom_sf(aes(fill=myacs_map$estimate, color = myacs_map$estimate)) +  
+     coord_sf(datum = NA) + 
+     theme_minimal() 
+zap 
+
+``` 
+
+
+<!-- ### Colorblind Friendly packages -->
+
+<!-- The `viridis` package is a color blind friendly palatte. The options for this package are" "viridis", "magma", "inferno", or "plasma". -->
+```{r} 
+# Create a colorblind friendly palette. 
+library(viridis) 
+library(plotly)
+library(ggplot2)
+
+zap2 <- ggplot(myacs_map$geometry) + geom_sf(aes(fill=myacs_map$estimate)) +  
+     scale_color_viridis_c() + scale_fill_viridis_c()+  
+     coord_sf(datum = NA) + 
+     theme_minimal() + 
+   labs(fill = "Median Population Income", 
+        title = "Median Pop Income by Census Tracts: Hanover County, VA"
+        ) 
+# caption = "Note: I used get_acs() to get this data"
+zap2 
+
+interactive <- ggplotly(zap2)
+interactive
+
+``` 
+
+
+<!-- ## State Borders -->
+
+<!-- To put an overlay of the STATE on top of your counties you need to save the STATE geometry for making maps. You will use this in your maps below. This will change depending on your subsets of states. You can get state borders using the `states()` function in the `tigris` package. -->
+<!-- ## One Map -->
+```{r mapAvar, echo=FALSE} 
+library(tigris) 
+state_borders <- states(cb = T) 
+state_borders <- state_borders %>%  
+                   filter(STATEFP %in% c("51")) #save only geometry for VA 
+
+MYMAP2 <- ggplot(myacs_map$geometry) +  
+   geom_sf(data = state_borders, color = 'black', fill = 'grey') +  
+   geom_sf(aes(fill=myacs_map$estimate)) +  
+   scale_color_viridis_c() + scale_fill_viridis_c() +  
+   coord_sf(datum = NA) +  
+   theme_void() + 
+    labs(fill = "Med Pop Inc", 
+        title = "Median Pop Income Across Census Tracts in Hanover, VA", 
+        caption = "Note: I used get_acs() to get this data") 
+
+MYMAP2 
+``` 
+
+<!-- These maps are UGLY! You can do better ! -->
+
+<!-- # Saving and Exporting the R dataframe -->
+
+<!-- At this point I would like to export my data to my hard drive. This is helpful if you plan to use it in RShiny apps. Here is how you save the data as an R dataframe. -->
+
+<!-- ```{r} -->
+<!-- save(ACS5.2019,file="ACS5.2019.Rda") -->
+<!-- ``` -->
+
+<!-- In another R script you can load the data that you saved above -->
+
+<!-- ```{r load_data} -->
+<!-- load("ACS5.2019.Rda") -->
+<!-- ``` -->
+
+# Leaflet Package for Making Interactive Maps in R 
+
+<!-- Now we are going to use the `leaflet` package to produce maps. This only works well and is interactive in an html file. In the code chunk below I first declare a color palette that will be defined using the colorNumeric() function. This function itself creates a function we are calling mypal(), which translates data values to color values for a given color palette. Our chosen color palette in this example is the viridis magma palette. -->
+```{r} 
+# Creating a map with leaflet 
+library(leaflet)
+
+mypal <- colorNumeric( 
+   palette = "magma",
+   domain = myacs_map$estimate
+ ) 
+
+mypal(c(10, 20, 30, 40, 50)) 
+
+leaflet() %>% 
+   addProviderTiles(providers$Stamen.TonerLite) %>% 
+   addPolygons(data = myacs_map, 
+               color = ~mypal(estimate), 
+               weight = 0.5, 
+               smoothFactor = 0.2, 
+               fillOpacity = 0.5, 
+              label = ~estimate) %>% 
+   addLegend( 
+     position = "topright", 
+     pal = mypal, 
+     values = myacs_map$estimate, 
+     title = "Median Population Income in Hanover County" 
+   ) 
+``` 
+<!-- I used [this website as a reference document for my maps:](https://walker-data.com/census-r/mapping-census-data-with-r.html) -->
+
+```{r} 
+#specify the bin breaks 
+mybins <- c(0, 60000, 70000, 80000, 90000, 100000, 110000, 120000, 130000) 
+#specify the default color 
+mypalette <- colorBin(palette="viridis", domain=myacs_map$estimate, na.color="transparent", bins=mybins) 
+
+acs_income_map <- leaflet(data = myacs_map) %>% 
+   addTiles() %>% 
+   addPolygons( 
+     fillColor = ~mypalette(myacs_map$`estimate`), 
+     stroke=TRUE, 
+     weight = 1, 
+     smoothFactor = 0.2, 
+     opacity = 1.0, 
+     fillOpacity = 0.7,
+     label=paste("Value: ",myacs_map$estimate), 
+     highlightOptions = highlightOptions(color = "white", 
+                                         weight = 2, 
+                                         bringToFront = TRUE)) %>% 
+   addLegend(pal=mypalette, position = "topright", 
+             values = ~myacs_map$estimate, 
+             opacity = 0.5, title = "Median Population Income") %>% 
+   addPolylines(data = myacs_map, color = "black",  
+                opacity = 0.2, weight = 1) 
+
+acs_income_map
+``` 
+
+```{r} 
+save(acs_income_map,file="acs_income_map.2019.Rda") 
+``` 
+
+<!-- 2. Or a different way to draw the map with a different baselayer. -->
+```{r} 
+
+pal <- colorNumeric( 
+   palette = "inferno",
+   domain = myacs_map$estimate 
+ ) 
+ map4<-leaflet() %>% 
+   addProviderTiles("CartoDB.Positron") %>% 
+   addPolygons(data = myacs_map,  
+               fillColor = ~mypal(estimate),  
+               color = "#b2aeae", # you need to use hex colors 
+               fillOpacity = 0.7,  
+               weight = 1,  
+               smoothFactor = 0.2) %>% 
+   addLegend(pal = mypal,  
+             values = myacs_map$estimate, 
+             position = "bottomright",  
+             title = "Median Income")  
+
+map4 
+``` 
+
+<!-- # What we learned today: -->
+<!-- 1. We reviewed how to get ACS data again -->
+<!-- 2. We learned how to map ACS data in R using plot -->
+<!-- 3. We learned how to map ACS data in R using ggplot -->
+<!-- 4. We learned how to map ACS data in R using leaflet -->
+
+<!-- # For your practice -->
+<!-- Use ggplot2 and leaflet to draw a map of the county where you currently reside.  -->
+<!-- Make a plot of census tract level median gross rent and another map of population 
+https://grantmcdermott.com/ds4e/spatial-analysis.html
+-->
+#Population
+```{r} 
+## Names for variable types 
+# Gives five year estimates 
+# To get Goochland County you will need to change Powhatan to Goochland 
+pop.ACS5.2019 <- get_acs(geography = "tract", year=this.year, 
+                   state = "VA", county = c("Hanover"), geometry = TRUE, 
+                   variables = c(population = "B02001_001", 
+                                 white = "B03002_003",  
+                                 af.am = "B03002_004", 
+                                 hispanic = "B03002_012", 
+                                 am.ind = "B03002_005", 
+                                 asian = "B03002_006", 
+                                 nh.pi = "B03002_007", 
+                                 multiple = "B03002_009", 
+                                 other = "B03002_008")) 
+head(pop.ACS5.2019) 
+``` 
+```{r} 
+myacs_map_pop <- filter(pop.ACS5.2019, variable == "population")
+#specify the bin breaks 
+mybins <- c(0,2999, 3999, 4999, 5999, 6999, 7999, 8999) 
+
+
+#specify the default color 
+mypalette <- colorBin(palette="viridis", domain=myacs_map_pop$estimate, na.color="transparent", bins=mybins) 
+
+acs_population_map <- leaflet(data = myacs_map_pop) %>% 
+   addTiles() %>% 
+   addPolygons( 
+     fillColor = ~mypalette(myacs_map_pop$`estimate`), 
+     stroke=TRUE, 
+     weight = 1, 
+     smoothFactor = 0.2, 
+     opacity = 1.0, 
+     fillOpacity = 0.7,
+     label=paste("Value: ",myacs_map_pop$estimate), 
+     highlightOptions = highlightOptions(color = "white", 
+                                         weight = 2, 
+                                         bringToFront = TRUE)) %>% 
+   addLegend(pal=mypalette, position = "topright", 
+             values = ~myacs_map_pop$estimate, 
+             opacity = 0.5, title = "Population Density") %>% 
+   addPolylines(data = myacs_map_pop, color = "black",  
+                opacity = 0.2, weight = 1) 
+
+acs_population_map
+```
+
+
+```{r} 
+save(acs_population_map,file="acs_population_map.2019.Rda") 
+``` 

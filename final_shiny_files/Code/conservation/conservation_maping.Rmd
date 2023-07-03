@@ -1,0 +1,230 @@
+---
+title: "conservation_easements"
+author: "Ari"
+date: "2023-06-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("sf")
+install.packages("leaflet")
+install.packages("writexl")
+install.packages("colorspace") 
+install.packages("RColorBrewer")
+install.packages("viridis")
+library(sf)
+library(leaflet)
+library(dplyr)
+library(readxl)
+library("writexl")
+library(colorspace) 
+library(RColorBrewer)
+library(ggplot2)
+library(plotly)
+library(viridis)
+```
+
+```{r}
+setwd("C:/Users/ariadnetynes/Desktop/VT_DSPG/DSPG2023_VCE_Hanover/conservation/conservation")
+```
+
+```{r wd}
+shapefile_afd <- st_read("Parcels_AFD/hanover_afd_parcels.shp")
+```
+
+```{r wd}
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = shapefile_afd, weight = 0.1)  # Add the shapefile to the map
+```
+
+```{r Classifies AFDs}
+afd <- function(nca) {
+  if (nca  == "1") {
+    return("Agricultural Forest District")
+  } else if (is.na(nca)) {
+    return("Missing") 
+    } else {
+    return("Non Agricultural Forest District")
+  }
+}
+
+shapefile_afd$afd <- sapply(shapefile_afd$nca, afd)
+
+#unique(merged_data$land_use)
+```
+
+```{r Leaflet for AFDs}
+hanover_boundary <- st_read("Hanover_County_Boundary/Hanover_County_Boundary.shp")
+boundaryleaflet <- hanover_boundary %>%
+  st_as_sf() 
+
+colored_afd <- shapefile_afd %>%
+  filter(afd == "Agricultural Forest District")
+
+color_map_afd <- colorFactor(palette = "#73D055FF", 
+                             domain = colored_afd$afd)
+
+
+leaflet() %>%
+        addTiles() %>%
+        addPolygons(data = colored_afd, color = "black", fillColor = ~color_map_afd(colored_afd$afd), fillOpacity = 0.7, stroke = TRUE, weight = 1) %>%
+        addLegend(values = colored_afd$afd, pal = color_map_afd, position = "bottomright")%>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        )
+```
+
+```{r Cons Easement Leaflet}
+#leaflet categorization for cons easement
+easeshape <- st_read("Parcels_conservation_easement/hanover_easeland_parcels.shp")
+easeshape <- na.omit(easeshape)
+
+ease <- function(easement) {
+  if (easement  == "1") {
+    return("Conservation Easement")
+  } else if (is.na(easement)) {
+    return("Missing") 
+  } else {
+    return("Non Conservation Easement")
+  }
+}
+easeshape$ease <- sapply(easeshape$easement, ease)
+
+color_ease <- easeshape %>%
+  filter(ease == "Conservation Easement")
+
+color_map_ease <- colorFactor(palette = "#238A8DFF", 
+                              domain = color_ease$ease)
+#leaflet output code
+leaflet() %>%
+        addTiles() %>%
+        addPolygons(data = color_ease, color = "black", fillColor = ~color_map_ease(color_ease$ease), fillOpacity = 0.7, stroke = TRUE, weight = 1) %>%
+        addLegend(values = color_ease$ease, pal = color_map_ease, position = "bottomright")%>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        )
+```
+
+
+```{r Classifies NCA}
+shapefile_NCA <- st_read("Parcels_NCA/hanover_nca_parcels.shp")
+
+labelled_nca <- function(nca) {
+  if (nca  == "1") {
+    return("Natural Conservation Areas")
+  } else if (is.na(nca)) {
+    return("Missing") 
+    } else {
+    return("Non Natural Conservation Areas")
+  }
+}
+
+shapefile_NCA$labelled_nca <- sapply(shapefile_NCA$nca, labelled_nca)
+
+colored_NCA <- shapefile_NCA %>%
+  filter(labelled_nca == "Natural Conservation Areas")
+
+color_map_NCA <- colorFactor(palette = "#FDE725FF", 
+                             domain = colored_NCA$labelled_nca)
+
+
+      leaflet() %>%
+        addTiles() %>%
+        addPolygons(data = colored_NCA, color = "transparent", fillColor =  ~color_map_NCA(colored_NCA$labelled_nca), fillOpacity = 0.7, stroke = TRUE, weight = 1) %>%
+        addLegend(values = colored_NCA$labelled_nca, pal = color_map_NCA, position = "bottomright")%>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        )
+```
+
+```{r}
+consland_shape <- st_read("Parcels_Consland/hanover_consland_parcels_labels_real.shp")
+
+labelled_consland <- function(conland) {
+  if (conland == "1") {
+    return("Conservation Land")
+  } else if (is.na(conland)) {
+    return("Missing") 
+  } else {
+    return("Non Conservation Land")
+  }
+}
+
+consland_shape$labelled_consland <- sapply(consland_shape$conland, labelled_consland)
+
+colored_consland <- consland_shape %>%
+  filter(labelled_consland == "Conservation Land")
+
+color_map_consland <- colorFactor(palette = "#453781FF", 
+                             domain = colored_consland$labelled_consland)
+
+      leaflet() %>%
+        addTiles() %>%
+        addPolygons(data = colored_consland, color = "transparent", fillColor =  ~color_map_consland(colored_consland$labelled_consland), fillOpacity = 0.7, stroke = TRUE, weight = 1) %>%
+        addLegend(values = colored_consland$labelled_consland, pal = color_map_consland, position = "bottomright")%>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        )
+
+```
+
+```{r Overall Map Leaflet}
+leaflet() %>%
+        addTiles() %>%
+        addPolygons(data = colored_NCA, color = "transparent", fillColor =  ~color_map_NCA(colored_NCA$labelled_nca), fillOpacity = 1, stroke = TRUE, weight = 1, group = "National Conservation Areas") %>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 0.1
+        ) %>%
+        addPolygons(data = colored_afd, color = "black", fillColor = ~color_map_afd(colored_afd$afd), fillOpacity = 1, stroke = TRUE, weight = 1, group = "Agricultural Forest District") %>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        ) %>%
+        addPolygons(data = color_ease, color = "black", fillColor = ~color_map_ease(color_ease$ease), fillOpacity = 1, stroke = TRUE, weight = 1, group = "Conservation Easement") %>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 1
+        ) %>%
+        addPolygons(data = colored_consland, color = "transparent", fillColor =  ~color_map_consland(colored_consland$labelled_consland), fillOpacity = 1, stroke = TRUE, weight = 1, group = "Conservation Land") %>%
+        addPolygons(
+          data = boundaryleaflet,
+          fillColor = "transparent",
+          color = "black",
+          fillOpacity = 0,
+          weight = 0.1
+        ) %>%
+        addLayersControl(
+          overlayGroups = c("Agricultural Forest District", "Conservation Easement", "Conservation Land", "National Conservation Areas"),
+          position = "bottomleft",
+          options = layersControlOptions(collapsed = FALSE)
+        )
+
+```

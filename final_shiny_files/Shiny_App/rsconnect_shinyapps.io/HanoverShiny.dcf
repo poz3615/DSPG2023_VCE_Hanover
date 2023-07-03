@@ -1,0 +1,13 @@
+name: HanoverShiny
+title: HanoverShiny
+username:
+account: ddeep21vt
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 9380607
+bundleId: 7414628
+url: https://ddeep21vt.shinyapps.io/HanoverShiny/
+when: 1688392252.81243
+lastSyncTime: 1688392252.81244
+asMultiple: FALSE
+asStatic: FALSE
